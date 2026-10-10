@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI 口播读书卡 · 一键生成器</title>
+<style>
+:root{
+  --brand:#6366f1; --brand2:#8b5cf6; --accent:#ec4899;
+  --bg:#f5f6fa; --card:#fff; --text:#1a1a2e; --sub:#6b7280;
+  --line:#e8eaf0; --ok:#10b981; --warn:#f59e0b; --err:#ef4444;
+  --radius:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Helvetica Neue',sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.6;font-size:15px;
+  padding-bottom:60px;
+}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px}
+
+/* ---------- Header ---------- */
+header{
+  background:linear-gradient(120deg,var(--brand) 0%,var(--brand2) 55%,var(--accent) 100%);
+  color:#fff;padding:22px 0 26px;position:relative;overflow:hidden;
+}
+header::after{
+  content:'';position:absolute;top:-70px;right:-60px;width:280px;height:280px;
+  background:radial-gradient(circle,rgba(255,255,255,.18) 0%,transparent 65%);
+}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative;z-index:1}
+.hd h1{font-size:21px;font-weight:800;letter-spacing:.5px}
+.hd .sub{font-size:12.5px;opacity:.9;margin-top:3px}
+.hbtn{
+  background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);
+  color:#fff;border-radius:22px;padding:7px 15px;font-size:13px;cursor:pointer;
+  white-space:nowrap;transition:.2s;
+}
+.hbtn:hover{background:rgba(255,255,255,.3)}
+
+/* ---------- Tabs ---------- */
+.tabs{display:flex;gap:6px;background:#fff;border-radius:var(--radius);padding:5px;margin-top:18px;
+  box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.tabs button{
+  flex:1;border:0;background:transparent;padding:9px 6px;border-radius:10px;
+  font-size:14px;color:var(--sub);cursor:pointer;transition:.2s;font-weight:600;
+}
+.tabs button.on{background:linear-gradient(120deg,var(--brand),var(--brand2));color:#fff}
+
+/* ---------- Card ---------- */
+.panel{background:var(--card);border-radius:var(--radius);padding:20px;margin-top:16px;
+  box-shadow:0 2px 12px rgba(0,0,0,.05)}
+.panel h2{font-size:16px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.panel h2 .n{
+  width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;
+  background:var(--brand);color:#fff;font-size:12px;flex:none;
+}
+
+label.f{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:#374151}
+input[type=text],input[type=password],textarea,select{
+  width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;
+  font-size:14.5px;font-family:inherit;background:#fbfbfd;transition:.2s;color:var(--text);
+}
+input:focus,textarea:focus,select:focus{outline:0;border-color:var(--brand);background:#fff}
+textarea{resize:vertical;min-height:88px;line-height:1.7}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1;min-width:150px}
+.hint{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.65}
+.hint a{color:var(--brand);text-decoration:none}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  background:linear-gradient(120deg,var(--brand),var(--accent));color:#fff;border:0;
+  border-radius:11px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;
+  transition:.2s;font-family:inherit;
+}
+.btn:hover{opacity:.9;transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn.gh{background:#fff;color:var(--brand);border:1.5px solid var(--brand)}
+.btn.sm{padding:8px 15px;font-size:13.5px;border-radius:9px}
+.btn.mini{padding:5px 11px;font-size:12.5px;border-radius:8px;background:#f1f2f7;color:#4b5563;font-weight:600}
+.btn.mini:hover{background:#e6e8f0}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+/* ---------- Provider grid ---------- */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
+.pcard{
+  border:1.8px solid var(--line);border-radius:11px;padding:12px;cursor:pointer;
+  transition:.2s;background:#fbfbfd;position:relative;
+}
+.pcard:hover{border-color:var(--brand2)}
+.pcard.on{border-color:var(--brand);background:#f0f0ff;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.pcard .nm{font-weight:700;font-size:14px}
+.pcard .ds{font-size:11.5px;color:var(--sub);margin-top:3px}
+.pcard .free{font-size:10.5px;color:var(--ok);font-weight:700;margin-top:4px}
+.pcard .chk{position:absolute;top:8px;right:9px;color:var(--brand);font-size:15px;display:none}
+.pcard.on .chk{display:block}
+
+/* ---------- Progress ---------- */
+.steps{margin-top:16px;display:none}
+.steps.show{display:block}
+.step{
+  display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:10px;
+  background:#fafaff;margin-bottom:7px;font-size:13.5px;transition:.3s;
+}
+.step .ic{width:22px;height:22px;flex:none;border-radius:50%;background:#dfe1ea;color:#fff;
+  font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:700}
+.step.run{background:#fff7ed}
+.step.run .ic{background:var(--warn);animation:spin 1s linear infinite}
+.step.done .ic{background:var(--ok)}
+.step.err{background:#fef2f2}
+.step.err .ic{background:var(--err)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- Result ---------- */
+.rout{
+  margin-top:14px;background:#fbfbfd;border:1.5px solid var(--line);border-radius:11px;
+  padding:16px;min-height:150px;max-height:560px;overflow-y:auto;
+  font-size:14px;line-height:1.85;white-space:pre-wrap;word-break:break-word;
+}
+.rout h1,.rout h2,.rout h3{line-height:1.5;margin:14px 0 8px}
+.rout h1{font-size:19px;border-bottom:2px solid var(--brand);padding-bottom:7px}
+.rout h2{font-size:16px;color:var(--brand)}
+.rout h3{font-size:14.5px;color:var(--brand2)}
+.rout strong{color:#be185d}
+.rout ul,.rout ol{padding-left:22px;margin:7px 0}
+.rout li{margin:3px 0}
+.rout hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+.rout code{background:#f1f2f7;padding:2px 6px;border-radius:4px;font-size:13px}
+.rtabs{display:flex;gap:6px;margin-top:16px;flex-wrap:wrap}
+.rtabs button{
+  border:1.5px solid var(--line);background:#fff;border-radius:20px;padding:6px 15px;
+  font-size:13px;cursor:pointer;color:var(--sub);transition:.2s;font-weight:600;font-family:inherit;
+}
+.rtabs button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+/* ---------- Badge / notice ---------- */
+.notice{
+  border-radius:11px;padding:12px 15px;font-size:13px;line-height:1.7;margin-top:14px;
+  border-left:4px solid;
+}
+.notice.i{background:#eff6ff;border-color:#3b82f6;color:#1e40af}
+.notice.w{background:#fffbeb;border-color:var(--warn);color:#92400e}
+.notice.e{background:#fef2f2;border-color:var(--err);color:#991b1b}
+.notice.s{background:#ecfdf5;border-color:var(--ok);color:#065f46}
+.notice b{font-weight:700}
+
+/* ---------- History ---------- */
+.hitem{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:8px;
+  background:#fbfbfd;cursor:pointer;transition:.2s;
+}
+.hitem:hover{border-color:var(--brand);background:#fff}
+.hitem .t{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hitem .d{font-size:11.5px;color:var(--sub);margin-top:2px}
+
+/* ---------- Modal ---------- */
+.mask{
+  position:fixed;inset:0;background:rgba(15,20,40,.55);display:none;
+  align-items:center;justify-content:center;padding:18px;z-index:99;backdrop-filter:blur(3px);
+}
+.mask.show{display:flex}
+.modal{
+  background:#fff;border-radius:18px;max-width:560px;width:100%;
+  max-height:88vh;overflow-y:auto;padding:26px;
+}
+.modal h3{font-size:18px;font-weight:800;margin-bottom:6px}
+.modal .mdesc{font-size:13px;color:var(--sub);margin-bottom:18px;line-height:1.7}
+
+/* ---------- Misc ---------- */
+.empty{text-align:center;color:var(--sub);font-size:13.5px;padding:34px 10px;line-height:1.9}
+.toast{
+  position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(90px);
+  background:#1a1a2e;color:#fff;padding:11px 22px;border-radius:24px;font-size:14px;
+  z-index:200;transition:.3s;opacity:0;pointer-events:none;box-shadow:0 6px 22px rgba(0,0,0,.25);
+}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+footer{text-align:center;color:#9ca3af;font-size:12px;padding:26px 16px 10px;line-height:1.9}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:720px){
+  .split{grid-template-columns:1fr}
+  .hd h1{font-size:18px}
+  .panel{padding:16px}
+  .pgrid{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+}
+.kv{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.kv:last-child{border:0}
+.kv .k{color:var(--sub)}
+.kv .v{font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="hd">
+      <div>
+        <h1>📖 AI 口播读书卡</h1>
+        <div class="sub">一本书 → 60秒口播稿 + 三平台文案 + 合规质检，全自动</div>
+      </div>
+      <button class="hbtn" onclick="openSetup()">⚙️ <span id="cfgLabel">设置</span></button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="tabs">
+    <button class="on" data-tab="gen" onclick="switchTab('gen')">✨ 生成</button>
+    <button data-tab="batch" onclick="switchTab('batch')">📚 批量</button>
+    <button data-tab="hist" onclick="switchTab('hist')">🕘 历史</button>
+    <button data-tab="help" onclick="switchTab('help')">❓ 帮助</button>
+  </div>
+
+  <!-- ============ 生成 ============ -->
+  <div id="tab-gen">
+    <div class="panel">
+      <h2><span class="n">1</span>输入你要讲的书</h2>
+      <input type="text" id="topic" placeholder="例如：原子习惯 / 《纳瓦尔宝典》 / 一个主题也行" value="">
+      <div style="margin-top:12px">
+        <label class="f">额外要求（选填）</label>
+        <input type="text" id="extra" placeholder="例如：面向职场新人 / 语气更犀利 / 避开敏感表述">
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label class="f">口播时长</label>
+          <select id="dur">
+            <option value="60秒，约250字">60秒（约250字）</option>
+            <option value="30秒，约130字">30秒（约130字）</option>
+            <option value="90秒，约380字">90秒（约380字）</option>
+            <option value="3分钟，约750字">3分钟（约750字）</option>
+          </select>
+        </div>
+        <div>
+          <label class="f">输出风格</label>
+          <select id="tone">
+            <option value="自然口语，像朋友聊天">自然口语（默认）</option>
+            <option value="犀利直接，观点鲜明">犀利直接</option>
+            <option value="温和治愈，有陪伴感">温和治愈</option>
+            <option value="专业理性，有数据感">专业理性</option>
+          </select>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn" id="goBtn" onclick="generate()">🚀 一键生成</button>
+        <button class="btn gh sm" onclick="loadDemo()">👀 先看样例效果</button>
+        <button class="btn mini" onclick="openSetup()">配置模型</button>
+      </div>
+      <div class="hint" id="readyHint"></div>
+    </div>
+
+    <div class="panel steps" id="steps">
+      <h2><span class="n">2</span>生成进度</h2>
+      <div class="step" id="s1"><div class="ic">1</div><span>生成读书卡（卖点 / 人群 / 口播稿 / 金句 / 知识卡 / 数字人提示词）</span></div>
+      <div class="step" id="s2"><div class="ic">2</div><span>生成三平台发布文案（小红书 / 抖音 / 公众号）</span></div>
+      <div class="step" id="s3"><div class="ic">3</div><span>合规质检（字数 / 夸大宣传 / 金句准确性）</span></div>
+    </div>
+
+    <div class="panel" id="resultPanel" style="display:none">
+      <h2><span class="n">3</span>拿到成品</h2>
+      <div id="qaTip"></div>
+      <div class="rtabs">
+        <button class="on" data-r="card" onclick="switchR('card')">📄 读书卡</button>
+        <button data-r="social" onclick="switchR('social')">📱 发布文案</button>
+        <button data-r="qa" onclick="switchR('qa')">🛡️ 质检报告</button>
+      </div>
+      <div class="rout" id="rout"></div>
+      <div class="acts">
+        <button class="btn sm" onclick="copyCurrent()">📋 复制当前</button>
+        <button class="btn gh sm" onclick="copyAll()">📦 复制全部</button>
+        <button class="btn gh sm" onclick="downloadMd()">💾 下载 .md</button>
+      </div>
+      <div class="hint">复制后可直接粘贴到剪映 / 数字人工具 / 小红书发布框。质检报告里标了「需修改」的句子，建议照着改一遍再发。</div>
+    </div>
+  </div>
+
+  <!-- ============ 批量 ============ -->
+  <div id="tab-batch" style="display:none">
+    <div class="panel">
+      <h2><span class="n">1</span>一次生成多本</h2>
+      <textarea id="batchInput" placeholder="每行一本，例如：&#10;原子习惯&#10;纳瓦尔宝典&#10;认知觉醒&#10;蛤蟆先生去看心理医生"></textarea>
+      <div class="acts">
+        <button class="btn" id="bBtn" onclick="runBatch()">📚 批量生成</button>
+        <button class="btn mini" onclick="downloadAllMd()">💾 打包下载全部</button>
+      </div>
+      <div class="hint">批量结果自动存进「历史」。建议一次不超过 10 本，避免等待过久。</div>
+      <div id="batchOut"></div>
+    </div>
+  </div>
+
+  <!-- ============ 历史 ============ -->
+  <div id="tab-hist" style="display:none">
+    <div class="panel">
+      <h2><span class="n">🕘</span>本地历史</h2>
+      <div id="histList"></div>
+      <div class="acts"><button class="btn mini" onclick="clearHist()">清空历史</button></div>
+      <div class="hint">历史只存在你自己的浏览器里，不会上传任何服务器。</div>
+    </div>
+  </div>
+
+  <!-- ============ 帮助 ============ -->
+  <div id="tab-help" style="display:none">
+    <div class="panel">
+      <h2><span class="n">?</span>怎么用（3 分钟看完）</h2>
+      <div class="kv"><span class="k">第 1 步</span><span class="v">点右上角「设置」，选一个模型厂商，填 Key</span></div>
+      <div class="kv"><span class="k">第 2 步</span><span class="v">回到「生成」，输入书名，点一键生成</span></div>
+      <div class="kv"><span class="k">第 3 步</span><span class="v">复制内容 → 粘贴到剪映 / 数字人 / 小红书，直接发</span></div>
+
+      <div class="notice i" style="margin-top:16px">
+        <b>为什么需要我自己填 Key？</b><br>
+        这个工具跑在你自己的浏览器里，我们不经手你的内容，也不替你付模型费用。
+        你自己填 Key，意味着：<b>内容不经过任何第三方、成本完全透明、不会被限流或断供</b>。
+        主流厂商新用户都有免费额度，日常用基本不花钱。
+      </div>
+
+      <div class="notice w">
+        <b>Key 安全提醒</b><br>
+        Key 只保存在你本地浏览器，不会上传。但请注意：
+        <b>不要在公共电脑或网吧使用</b>；如怀疑泄露，去厂商后台立即删除重建。
+      </div>
+
+      <div class="notice s">
+        <b>常见问题</b><br>
+        <b>Q：生成失败 / 提示跨域？</b><br>
+        A：少数浏览器或网络环境会拦截直连。可点设置里的「使用代理转发」并填入你自己的代理地址；
+        或在厂商后台确认该 Key 已启用、余额充足。<br><br>
+        <b>Q：没有 Key 能用吗？</b><br>
+        A：可以点「先看样例效果」查看完整成品长什么样，但要生成你自己的书，需要配置模型。<br><br>
+        <b>Q：生成的内容能商用吗？</b><br>
+        A：可以，用于口播视频、图文发布、知识付费产品均无问题。但内容由 AI 基于公开认知生成，
+        发布前请对照质检报告自行把关，涉及医疗/法律/金融等请加免责声明。
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ 设置弹窗 ============ -->
+<div class="mask" id="mask">
+  <div class="modal">
+    <h3>⚙️ 模型配置</h3>
+    <div class="mdesc">
+      只需配置一次，之后打开就能用。Key 保存在你本地浏览器，不会上传。
+    </div>
+
+    <label class="f">选择模型厂商</label>
+    <div class="pgrid" id="pgrid"></div>
+
+    <div style="margin-top:18px">
+      <label class="f">API Key</label>
+      <input type="password" id="apikey" placeholder="粘贴你的 Key，通常以 sk- 开头">
+      <div class="hint">
+        还没有 Key？<a id="keyUrl" href="#" target="_blank" rel="noopener">点这里去申请 →</a>
+        注册后一般在「API Keys」页面创建，多数厂商新用户有免费额度。
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <div>
+        <label class="f">模型</label>
+        <select id="model"></select>
+      </div>
+      <div>
+        <label class="f">接口地址（一般不用改）</label>
+        <input type="text" id="apiurl" placeholder="https://...">
+      </div>
+    </div>
+
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;font-size:13px;color:var(--sub);font-weight:600">
+        高级：遇到跨域 / 需要代理？
+      </summary>
+      <div style="margin-top:11px">
+        <label class="f">自定义代理前缀（选填）</label>
+        <input type="text" id="proxy" placeholder="例如 https://your-proxy.example.com/">
+        <div class="hint" style="color:var(--err)">
+          ⚠️ 填写代理后，你的 Key 会经过该代理服务器。
+          <b>只填你自己搭建或完全信任的代理</b>，不要填来路不明的公共代理，否则 Key 可能被盗用。
+        </div>
+      </div>
+    </details>
+
+    <div class="acts">
+      <button class="btn" onclick="testConn()">🔌 测试连接</button>
+      <button class="btn gh" onclick="saveCfg()">保存</button>
+      <button class="btn mini" onclick="closeSetup()">关闭</button>
+    </div>
+    <div id="testOut"></div>
+
+    <div class="notice w" style="margin-top:16px">
+      <b>推荐 DeepSeek / 智谱 GLM / 通义千问</b>：中文表达自然，新用户均有免费额度，
+      生成一张卡的成本通常在几分钱以内。
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<footer>
+  AI 口播读书卡 · 本地运行，内容不经第三方<br>
+  ⚠️ 内容为 AI 基于公开认知生成，不承诺任何收益；数字人发布请按平台规则标识
+</footer>
+
+<script>
+/* =========================================================
+   厂商预设
+   ========================================================= */
+const PROVIDERS = {
+  deepseek:{nm:'DeepSeek',ds:'中文强 · 便宜',free:'新用户有免费额度',
+    url:'https://api.deepseek.com/v1/chat/completions',models:['deepseek-chat','deepseek-reasoner'],
+    keyUrl:'https://platform.deepseek.com/api_keys'},
+  glm:{nm:'智谱 GLM',ds:'国产 · 稳定',free:'有免费模型',
+    url:'https://open.bigmodel.cn/api/paas/v4/chat/completions',models:['glm-4-flash','glm-4-air','glm-4-plus'],
+    keyUrl:'https://open.bigmodel.cn/usercenter/apikeys'},
+  qwen:{nm:'通义千问',ds:'阿里 · 中文好',free:'新用户有免费额度',
+    url:'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',models:['qwen-plus','qwen-max','qwen-turbo'],
+    keyUrl:'https://bailian.console.aliyun.com/?tab=model#/api-key'},
+  moonshot:{nm:'Moonshot',ds:'长文本擅长',free:'新用户有免费额度',
+    url:'https://api.moonshot.cn/v1/chat/completions',models:['moonshot-v1-8k','moonshot-v1-32k','moonshot-v1-128k'],
+    keyUrl:'https://platform.moonshot.cn/console/api-keys'},
+  silicon:{nm:'硅基流动',ds:'聚合多家模型',free:'部分模型免费',
+    url:'https://api.siliconflow.cn/v1/chat/completions',
+    models:['Qwen/Qwen2.5-7B-Instruct','Qwen/Qwen2.5-72B-Instruct','deepseek-ai/DeepSeek-V3'],
+    keyUrl:'https://cloud.siliconflow.cn/account/ak'},
+  doubao:{nm:'豆包 / 火山',ds:'字节 · 速度快',free:'新用户有免费额度',
+    url:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+    models:['doubao-pro-32k','doubao-lite-32k'],
+    keyUrl:'https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey'},
+  openai:{nm:'OpenAI',ds:'需自备网络环境',free:'',
+    url:'https://api.openai.com/v1/chat/completions',models:['gpt-4o-mini','gpt-4o'],
+    keyUrl:'https://platform.openai.com/api-keys'},
+  custom:{nm:'自定义',ds:'OpenAI 兼容接口',free:'',
+    url:'',models:[],keyUrl:''}
+};
+
+/* =========================================================
+   提示词（工作流三段）
+   ========================================================= */
+function sysCard(dur, tone){
+  return `你是一个"口播读书卡"产品引擎。给定一本书或主题，产出一套可直接使用的读书卡。
+
+严格按以下 Markdown 结构输出，不要增减章节标题：
+
+# 《书名》口播读书卡
+
+## 📌 一句话卖点
+（一句话说清为什么值得听，20字内，有反差感）
+
+## 🎯 目标人群
+（3-5个具体人群，每条一句话说清"谁+什么处境"）
+
+## 🗣️ 口播稿（${dur}）
+（要求：${tone}。开头3秒内必须有钩子或反常识观点；中段讲清一个核心方法；结尾有明确行动指令。不要写小标题、不要分点、一气呵成，适合朗读）
+
+## 💎 三大核心金句
+1. **金句** —— 解读（40字内）
+2. ...
+3. ...
+
+## 🧠 知识卡片（3张）
+### 卡片1：标题
+- **核心内容**：50字内
+- **适用场景**：具体场景，不要空泛
+（卡片2、卡片3同样格式）
+
+## 📱 数字人口播脚本提示词
+（一段可直接粘贴到数字人/视频工具的提示词，须包含：镜头景别、人物气质、背景、语气、需停顿的位置、需加重的关键词、字幕要求、时长控制）
+
+## 🏷️ 标签
+（8个左右，#开头）
+
+硬性要求：
+1. 内容原创，有信息增量，不写正确的废话
+2. 不编造书中不存在的事实；若不确定，明确标注"基于公开认知"
+3. 不承诺任何收益，不使用" guaranteed""一定""必然"等绝对化表述
+4. 口播稿是朗读用的，避免书面语、长定语从句和生僻字`;
+}
+
+const SYS_SOCIAL = `你是自媒体发布助手。给定读书卡内容，产出3条不同平台的发布文案。
+
+严格输出：
+
+## 小红书版
+（emoji自然穿插，有个人体验感，200字内，结尾带5个话题标签。标题单独一行，要有点击欲）
+
+## 抖音版
+（口播开场白+钩子，100字内，前3秒必须抓人，结尾引导互动）
+
+## 公众号版
+（标题 / 导语 / 正文框架（3-4个小标题+要点））
+
+要求：贴合各平台调性，不夸大、不承诺收益、不写"月入过万""轻松变现"这类违规表述。`;
+
+const SYS_QA = `你是内容合规质检员。检查给定的读书卡内容，输出：
+
+## ✅ 质检结论
+（通过 / 需修改 —— 二选一，并一句话说明）
+
+## ⚠️ 问题清单
+逐条检查以下四项，有问题就列出（没问题写"无"）：
+1. 口播稿字数是否在目标区间 ±20% 内，并给出实测字数
+2. 是否存在绝对化/夸大/效果承诺表述（如"必然""一定""37倍""自动成功"），引用原句并说明风险
+3. 金句与知识卡片是否符合该书公认观点；若属提炼而非原句，请注明
+4. 必要模块是否齐全：一句话卖点/目标人群/口播稿/三条金句/三张知识卡/数字人提示词/标签
+
+## 📝 修改建议
+针对每个问题给出可直接替换的句子（原文 → 建议改为）。若无需修改则写"可直接发布"。
+
+要求：只基于给定内容判断，不臆测；语气客观，不为了凑问题而挑刺。`;
+
+/* =========================================================
+   状态
+   ========================================================= */
+let CFG = JSON.parse(localStorage.getItem('bk_cfg') || '{}');
+let HIST = JSON.parse(localStorage.getItem('bk_hist') || '[]');
+let CUR = null;
+let selProvider = CFG.provider || 'deepseek';
+
+/* =========================================================
+   工具
+   ========================================================= */
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function md2html(s){
+  let h = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/^#{1}\s+(.*)$/gm,'<h1>$1</h1>')
+       .replace(/^#{2}\s+(.*)$/gm,'<h2>$1</h2>')
+       .replace(/^#{3}\s+(.*)$/gm,'<h3>$1</h3>')
+       .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+       .replace(/^\s*[-*]\s+(.*)$/gm,'<li>$1</li>')
+       .replace(/^\s*(\d+)\.\s+(.*)$/gm,'<li>$2</li>')
+       .replace(/^---+$/gm,'<hr>')
+       .replace(/`(.+?)`/g,'<code>$1</code>');
+  h = h.replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>'+m+'</ul>');
+  return h;
+}
+function wc(s){
+  const m = s.split('\n'); let ins = false, out = [];
+  for(const ln of m){
+    if(/口播稿/.test(ln)){ ins = true; continue; }
+    if(ins){
+      if(/^##/.test(ln)) break;
+      out.push(ln);
+    }
+  }
+  return out.join('').replace(/\s/g,'').length;
+}
+function now(){ return new Date().toLocaleString('zh-CN',{hour12:false}); }
+
+/* =========================================================
+   Tab 切换
+   ========================================================= */
+function switchTab(t){
+  ['gen','batch','hist','help'].forEach(x=>{
+    document.getElementById('tab-'+x).style.display = (x===t?'':'none');
+  });
+  document.querySelectorAll('.tabs button').forEach(b=>{
+    b.classList.toggle('on', b.dataset.tab===t);
+  });
+  if(t==='hist') renderHist();
+}
+function renderQaTip(){
+  const el = document.getElementById('qaTip');
+  if(!el || !CUR) return;
+  if(/需修改/.test(CUR.qa || '')){
+    el.innerHTML = '<div class="notice w">⚠️ <b>质检提示：发现需要修改的地方</b> —— 建议点开「🛡️ 质检报告」按建议改一遍再发布，可降低限流风险。</div>';
+  }else{
+    el.innerHTML = '<div class="notice s">✓ 质检通过 —— 可直接发布（涉及医疗/法律/金融等内容请自行补充免责声明）。</div>';
+  }
+}
+function switchR(r){
+  if(!CUR) return;
+  document.querySelectorAll('.rtabs button').forEach(b=>b.classList.toggle('on', b.dataset.r===r));
+  document.getElementById('rout').innerHTML = md2html(CUR[r] || '（暂无内容）');
+}
+
+/* =========================================================
+   设置面板
+   ========================================================= */
+function renderProviders(){
+  const g = document.getElementById('pgrid');
+  g.innerHTML = Object.keys(PROVIDERS).map(k=>{
+    const p = PROVIDERS[k];
+    return `<div class="pcard ${k===selProvider?'on':''}" onclick="pickProvider('${k}')">
+      <div class="chk">✓</div>
+      <div class="nm">${p.nm}</div>
+      <div class="ds">${p.ds}</div>
+      ${p.free?`<div class="free">✓ ${p.free}</div>`:''}
+    </div>`;
+  }).join('');
+}
+function pickProvider(k){
+  selProvider = k; renderProviders();
+  const p = PROVIDERS[k];
+  document.getElementById('apiurl').value = p.url;
+  document.getElementById('keyUrl').href = p.keyUrl || '#';
+  const ms = p.models || [];
+  const sel = document.getElementById('model');
+  if(ms.length){
+    sel.innerHTML = ms.map(m=>`<option>${m}</option>`).join('');
+    sel.disabled = false;
+  }else{
+    sel.innerHTML = '<option>（自定义，需在下方填模型名）</option>';
+    sel.disabled = true;
+  }
+  if(CFG.model && ms.includes(CFG.model)) sel.value = CFG.model;
+}
+function openSetup(){
+  const p = PROVIDERS[selProvider];
+  document.getElementById('apikey').value = CFG.key || '';
+  document.getElementById('apiurl').value = CFG.url || p.url;
+  document.getElementById('proxy').value = CFG.proxy || '';
+  document.getElementById('testOut').innerHTML = '';
+  renderProviders(); pickProvider(selProvider);
+  if(CFG.model) {
+    const sel = document.getElementById('model');
+    if([...sel.options].some(o=>o.value===CFG.model)) sel.value = CFG.model;
+  }
+  document.getElementById('mask').classList.add('show');
+}
+function closeSetup(){ document.getElementById('mask').classList.remove('show'); }
+
+function saveCfg(){
+  const key = document.getElementById('apikey').value.trim();
+  const url = document.getElementById('apiurl').value.trim();
+  const model = document.getElementById('model').value;
+  if(!key){ toast('请填写 API Key'); return; }
+  if(!url){ toast('请填写接口地址'); return; }
+  CFG = { provider:selProvider, key, url, model, proxy:document.getElementById('proxy').value.trim() };
+  localStorage.setItem('bk_cfg', JSON.stringify(CFG));
+  updateReady(); closeSetup(); toast('已保存，可以开始生成了');
+}
+
+async function testConn(){
+  const key = document.getElementById('apikey').value.trim();
+  const url = document.getElementById('apiurl').value.trim();
+  const model = document.getElementById('model').value;
+  const out = document.getElementById('testOut');
+  if(!key || !url){ out.innerHTML = '<div class="notice e">请先填写 Key 和接口地址</div>'; return; }
+  out.innerHTML = '<div class="notice i">正在测试…</div>';
+  try{
+    const t0 = Date.now();
+    const txt = await call({key, url, model, proxy:document.getElementById('proxy').value.trim()},
+      '你是一个测试助手。', '回复两个字：正常', 60);
+    out.innerHTML = `<div class="notice s"><b>✓ 连接成功</b>（${Date.now()-t0}ms）<br>模型回复：${escapeHtml(txt.slice(0,60))}</div>`;
+  }catch(e){
+    out.innerHTML = `<div class="notice e"><b>✗ 连接失败</b><br>${escapeHtml(e.message)}<br><br>
+      常见原因：Key 有误或未启用 / 余额不足 / 网络拦截跨域。<br>
+      如确认是跨域问题，可展开「高级」填一个你信任的代理地址。</div>`;
+  }
+}
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* =========================================================
+   LLM 调用（流式）
+   ========================================================= */
+function endpoint(cfg){
+  return (cfg.proxy ? cfg.proxy.replace(/\/$/,'') + '/' : '') + cfg.url;
+}
+async function call(cfg, system, user, maxTok, onDelta){
+  const body = {
+    model: cfg.model,
+    messages: [{role:'system',content:system},{role:'user',content:user}],
+    temperature: 0.65,
+    max_tokens: maxTok || 2500,
+    stream: !!onDelta
+  };
+  let resp;
+  try{
+    resp = await fetch(endpoint(cfg), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+cfg.key },
+      body: JSON.stringify(body)
+    });
+  }catch(e){
+    throw new Error('网络请求失败：' + e.message + '。若为跨域拦截，请在设置里填写代理地址。');
+  }
+  if(!resp.ok){
+    let detail = '';
+    try{ const j = await resp.json(); detail = j.error?.message || JSON.stringify(j).slice(0,200); }catch(_){ detail = await resp.text().catch(()=>'').then(t=>t.slice(0,200)); }
+    throw new Error(`HTTP ${resp.status}：${detail}`);
+  }
+  if(!onDelta){
+    const j = await resp.json();
+    return j.choices?.[0]?.message?.content || '';
+  }
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder('utf-8');
+  let buf = '', full = '';
+  while(true){
+    const {done, value} = await reader.read();
+    if(done) break;
+    buf += dec.decode(value, {stream:true});
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for(const ln of lines){
+      const s = ln.trim();
+      if(!s.startsWith('data:')) continue;
+      const d = s.slice(5).trim();
+      if(d === '[DONE]') continue;
+      try{
+        const j = JSON.parse(d);
+        const piece = j.choices?.[0]?.delta?.content || '';
+        if(piece){ full += piece; onDelta(piece); }
+      }catch(_){}
+    }
+  }
+  return full;
+}
+
+/* =========================================================
+   生成主流程
+   ========================================================= */
+function ckCfg(){
+  if(!CFG.key || !CFG.url){ openSetup(); return false; }
+  return true;
+}
+function stepState(id, st){
+  const el = document.getElementById(id);
+  el.className = 'step ' + (st||'');
+  el.querySelector('.ic').textContent = st==='done' ? '✓' : (st==='err' ? '!' : el.querySelector('.ic').textContent);
+}
+function switchRTabOnly(r){
+  document.querySelectorAll('.rtabs button').forEach(b=>b.classList.toggle('on', b.dataset.r===r));
+  document.getElementById('rout').innerHTML = '';
+}
+/* 实时输出：把流式片段节流渲染到结果区，避免用户以为卡死 */
+function makeSink(rkey){
+  switchRTabOnly(rkey);
+  let buf = '', last = 0, raf = null;
+  const paint = ()=>{
+    raf = null;
+    const el = document.getElementById('rout');
+    if(el) el.innerHTML = md2html(buf);
+  };
+  return {
+    push(piece){
+      buf += piece;
+      const t = Date.now();
+      if(t - last > 100){
+        last = t;
+        if(raf === null) raf = requestAnimationFrame(paint);
+      }
+    },
+    flush(){ if(raf !== null){ cancelAnimationFrame(raf); raf = null; } paint(); }
+  };
+}
+
+async function genOne(topic, extra, dur, tone, live){
+  const cfg = CFG;
+  const p1 = document.getElementById('s1'), p2 = document.getElementById('s2'), p3 = document.getElementById('s3');
+  const S = live ? makeSink('card') : null;
+
+  stepState('s1','run'); p1.querySelector('span').textContent = '生成读书卡…';
+  const sys = sysCard(dur||'60秒，约250字', tone||'自然口语，像朋友聊天');
+  const user = `主题：${topic}\n` + (extra ? `额外要求：${extra}\n` : '');
+  const card = await call(cfg, sys, user, 2600, S ? (d=>S.push(d)) : null);
+  if(S) S.flush();
+  stepState('s1','done'); p1.querySelector('span').textContent = '读书卡完成 ✓';
+
+  const S2 = live ? makeSink('social') : null;
+  stepState('s2','run'); p2.querySelector('span').textContent = '生成三平台发布文案…';
+  const social = await call(cfg, SYS_SOCIAL,
+    `这是读书卡内容：\n${card.slice(0,3000)}\n\n请生成3平台发布文案。`, 1800, S2 ? (d=>S2.push(d)) : null);
+  if(S2) S2.flush();
+  stepState('s2','done'); p2.querySelector('span').textContent = '发布文案完成 ✓';
+
+  const S3 = live ? makeSink('qa') : null;
+  stepState('s3','run'); p3.querySelector('span').textContent = '合规质检…';
+  const qa = await call(cfg, SYS_QA, `这是读书卡内容：\n${card}\n\n请质检。口播稿目标字数：${(dur||'').match(/约?(\d+)字/)?.[1] || 250}`, 1400, S3 ? (d=>S3.push(d)) : null);
+  if(S3) S3.flush();
+  stepState('s3','done'); p3.querySelector('span').textContent = '质检完成 ✓';
+
+  return { topic, card, social, qa, wc: wc(card), at: now() };
+}
+
+async function generate(){
+  const topic = document.getElementById('topic').value.trim();
+  if(!topic){ toast('请输入书名或主题'); return; }
+  if(!ckCfg()) return;
+
+  const btn = document.getElementById('goBtn');
+  btn.disabled = true; btn.textContent = '生成中…';
+  document.getElementById('steps').classList.add('show');
+  ['s1','s2','s3'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.className='step'; el.querySelector('.ic').textContent = id.slice(1);
+  });
+  document.getElementById('s1').querySelector('span').textContent = '生成读书卡（卖点 / 人群 / 口播稿 / 金句 / 知识卡 / 数字人提示词）';
+  document.getElementById('s2').querySelector('span').textContent = '生成三平台发布文案（小红书 / 抖音 / 公众号）';
+  document.getElementById('s3').querySelector('span').textContent = '合规质检（字数 / 夸大宣传 / 金句准确性）';
+  // 提前露出结果区，让内容实时流出来，避免干等
+  document.getElementById('resultPanel').style.display = '';
+  window.scrollTo({top:document.getElementById('steps').offsetTop-20, behavior:'smooth'});
+
+  try{
+    CUR = await genOne(topic,
+      document.getElementById('extra').value.trim(),
+      document.getElementById('dur').value,
+      document.getElementById('tone').value, true);
+    switchR('card');
+    renderQaTip();
+    pushHist(CUR);
+    toast(`完成！口播稿约 ${CUR.wc} 字`);
+  }catch(e){
+    ['s1','s2','s3'].forEach(id=>{ const el=document.getElementById(id); if(el.className.includes('run')) stepState(id,'err'); });
+    document.getElementById('resultPanel').style.display = '';
+  document.querySelectorAll('.rtabs button').forEach(b=>b.classList.remove('on'));
+    document.getElementById('qaTip').innerHTML = '';
+    document.getElementById('rout').innerHTML =
+      `<div class="notice e"><b>生成失败</b><br>${escapeHtml(e.message)}<br><br>
+       请检查：① Key 是否正确且在有效期内 ② 账户余额是否充足 ③ 是否为跨域问题（可填代理）</div>`;
+  }finally{
+    btn.disabled = false; btn.textContent = '🚀 一键生成';
+  }
+}
+
+async function runBatch(){
+  const lines = document.getElementById('batchInput').value.split('\n')
+    .map(s=>s.trim()).filter(Boolean);
+  if(!lines.length){ toast('请至少输入一本书'); return; }
+  if(!ckCfg()) return;
+  const btn = document.getElementById('bBtn');
+  btn.disabled = true;
+  const out = document.getElementById('batchOut');
+  out.innerHTML = '';
+  const dur = document.getElementById('dur') ? '60秒，约250字' : '60秒，约250字';
+  for(let i=0;i<lines.length;i++){
+    const t = lines[i];
+    out.innerHTML += `<div class="notice i" id="bi${i}">⏳ [${i+1}/${lines.length}] ${escapeHtml(t)} 生成中…</div>`;
+    try{
+      const r = await genOne(t, '', '60秒，约250字', '自然口语，像朋友聊天');
+      pushHist(r);
+      document.getElementById('bi'+i).outerHTML =
+        `<div class="notice s">✓ [${i+1}/${lines.length}] ${escapeHtml(t)} — 口播稿约 ${r.wc} 字</div>`;
+    }catch(e){
+      document.getElementById('bi'+i).outerHTML =
+        `<div class="notice e">✗ [${i+1}/${lines.length}] ${escapeHtml(t)} — ${escapeHtml(e.message)}</div>`;
+    }
+  }
+  btn.disabled = false;
+  toast('批量完成，已存入历史');
+}
+
+/* =========================================================
+   历史 / 导出
+   ========================================================= */
+function pushHist(r){
+  HIST.unshift({topic:r.topic, card:r.card, social:r.social, qa:r.qa, wc:r.wc, at:r.at});
+  if(HIST.length > 50) HIST = HIST.slice(0,50);
+  localStorage.setItem('bk_hist', JSON.stringify(HIST));
+}
+function renderHist(){
+  const el = document.getElementById('histList');
+  if(!HIST.length){ el.innerHTML = '<div class="empty">还没有记录<br>去「生成」里做第一张读书卡吧</div>'; return; }
+  el.innerHTML = HIST.map((h,i)=>`
+    <div class="hitem" onclick="openHist(${i})">
+      <div style="min-width:0;flex:1">
+        <div class="t">${escapeHtml(h.topic)}</div>
+        <div class="d">${h.at} · 口播稿约 ${h.wc} 字</div>
+      </div>
+      <button class="btn mini" onclick="event.stopPropagation();dlOne(${i})">下载</button>
+    </div>`).join('');
+}
+function openHist(i){
+  CUR = HIST[i];
+  switchTab('gen');
+  document.getElementById('resultPanel').style.display = '';
+  document.getElementById('topic').value = CUR.topic;
+  renderQaTip();
+  switchR('card');
+  window.scrollTo({top:document.getElementById('resultPanel').offsetTop-20, behavior:'smooth'});
+}
+function clearHist(){
+  if(!confirm('确定清空全部历史？此操作不可恢复。')) return;
+  HIST = []; localStorage.removeItem('bk_hist'); renderHist(); toast('已清空');
+}
+function fullMd(r){
+  return `# 读书卡 · ${r.topic}\n\n- 生成时间：${r.at}\n- 口播稿字数：约 ${r.wc} 字\n\n---\n\n${r.card}\n\n---\n\n# 发布文案 · ${r.topic}\n\n${r.social}\n\n---\n\n# 质检报告 · ${r.topic}\n\n${r.qa}\n`;
+}
+function download(name, text){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:'text/markdown;charset=utf-8'}));
+  a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+}
+function downloadMd(){
+  if(!CUR) return;
+  download(`${CUR.topic.replace(/[《》]/g,'')}_读书卡.md`, fullMd(CUR));
+}
+function dlOne(i){ download(`${HIST[i].topic.replace(/[《》]/g,'')}_读书卡.md`, fullMd(HIST[i])); }
+function downloadAllMd(){
+  if(!HIST.length){ toast('还没有可下载的内容'); return; }
+  download('读书卡合集.md', HIST.map(fullMd).join('\n\n\n---\n\n\n'));
+}
+function copyText(t){
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(t).then(()=>toast('已复制')).catch(()=>fallbackCopy(t));
+  }else fallbackCopy(t);
+}
+function fallbackCopy(t){
+  const ta = document.createElement('textarea');
+  ta.value = t; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast('已复制'); }catch(e){ toast('复制失败，请手动选中'); }
+  document.body.removeChild(ta);
+}
+function copyCurrent(){
+  if(!CUR) return;
+  const r = [...document.querySelectorAll('.rtabs button')].find(b=>b.classList.contains('on'))?.dataset.r || 'card';
+  copyText(CUR[r] || '');
+}
+function copyAll(){ if(CUR) copyText(fullMd(CUR)); }
+
+/* =========================================================
+   演示样例（无 Key 也能看到成品长什么样）
+   ========================================================= */
+const DEMO = {
+  topic:'《原子习惯》（示例）',
+  wc:249,
+  card:`# 《原子习惯》口播读书卡
+
+## 📌 一句话卖点
+别再靠意志力硬撑，把自律变成一套更容易持续的小系统。
+
+## 🎯 目标人群
+1. 想读书、运动、早起，但总坚持不过三天的人
+2. 想戒掉刷手机、熬夜、拖延的职场人和学生
+3. 想做副业、自媒体，却缺少稳定执行的人
+4. 需要帮助学员或团队建立习惯的教练、老师、管理者
+
+## 🗣️ 口播稿（60秒，约250字）
+别再靠意志力硬撑了。你不是不够自律，而是没把习惯设计成更容易自然发生。《原子习惯》最实用的地方，是告诉你：改变不靠鸡血，靠每天1%的小动作。书中用复利模型比喻：每天进步一点点，一年大约会是原来的37倍。怎么做？记住四个词：显而易见、有吸引力、容易开始、立刻满足。想读书，把书放枕头边；想运动，把跑鞋摆门口；想少刷手机，把应用藏深一点。先别定大目标，把新习惯缩小到两分钟：读一页书，穿鞋走一圈。真正的改变从身份开始：不是完成一件事，而是成为每天做一点点的人。现在，选一个你最想养成的习惯，改成两分钟版本，今天就做一次。
+
+## 💎 三大核心金句
+1. **习惯是自我提升的复利。** —— 微小改变只要持续发生，就会在时间里拉开巨大差距。
+2. **目标给你方向，系统给你结果。** —— 真正有效的是设计环境和流程，而不是靠喊口号。
+3. **每一次行动，都是在为你想成为的身份投票。** —— 身份变了，坚持才会变自然。
+
+## 🧠 知识卡片（3张）
+### 卡片1：习惯回路诊断卡
+- **核心内容**：习惯由"提示—渴求—反应—奖励"组成，改变行为先找到断点。
+- **适用场景**：戒短视频、戒夜宵、减少拖延。
+
+### 卡片2：四定律行为设计卡
+- **核心内容**：让好习惯显而易见、有吸引力、容易开始、立刻满足；戒坏习惯则反过来操作。
+- **适用场景**：读书、健身、早起、减少手机依赖。
+
+### 卡片3：两分钟启动卡
+- **核心内容**：把新习惯压缩成最小动作，"读30分钟"改成"读一页"。
+- **适用场景**：从0开始建立阅读、写作、运动、复盘习惯。
+
+## 📱 数字人口播脚本提示词
+生成一位知识型口播博主，30岁左右，语气自然亲和、像朋友聊天，不要喊口号。半身正面镜头，背景为简洁书房。开头"别再靠意志力硬撑了"后停顿0.5秒；重点词加重：意志力、1%、37倍、显而易见、两分钟；讲到"四个词"时用手势逐条强调；结尾"评论区写下来"时做邀请手势。字幕每行不超过14字，重点词用亮色。时长60秒左右，语速中等偏快。
+
+## 🏷️ 标签
+#原子习惯 #习惯养成 #自律系统 #个人成长 #时间管理 #读书博主 #口播读书卡 #知识付费`,
+  social:`## 小红书版
+
+别再靠意志力硬撑啦🙅‍♀️
+你不是不自律，只是没把习惯设计成更容易自然发生。
+
+《原子习惯》最打动我的一点：
+改变不用靠鸡血，从每天1%的小动作开始🌱
+想读书，就把书放枕头边📖
+想运动，就把跑鞋摆门口👟
+想少刷手机，就把应用藏深一点📵
+
+新习惯先缩小到2分钟：读一页书、穿鞋走一圈、打开本子写一句。
+重点不是完成多少，而是成为"每天做一点点的人"。
+
+#原子习惯 #习惯养成 #自律系统 #个人成长 #读书博主
+
+## 抖音版
+别再靠意志力硬撑了。你不是不自律，而是没把习惯设计成更容易发生。把新习惯缩小到2分钟，先开始，再坚持。
+
+## 公众号版
+**标题：你不是不够自律，而是没把习惯设计成更容易发生**
+
+**导语：** 很多人以为坚持靠意志力，其实真正有效的改变，靠的是更小的动作和更顺的环境。
+
+**正文框架：**
+1. 误区：自律不是硬撑
+2. 方法：让好习惯更容易发生
+3. 行动：先做2分钟版本
+4. 关键：从身份开始改变`,
+  qa:`## ✅ 质检结论
+**通过** —— 结构完整、口播稿249字符合要求，无绝对化收益承诺。
+
+## ⚠️ 问题清单
+1. **字数**：实测 249 字，在 250 字目标区间内 ✓
+2. **绝对化表述**：已把"会被复利放大到37倍"修正为"书中用复利模型比喻……大约会是原来的37倍"，规避了效果承诺风险 ✓
+3. **金句准确性**：三条均属核心观点提炼，非书中逐字原句，建议发布时标注"观点提炼"
+4. **模块完整性**：一句话卖点 ✓ 目标人群 ✓ 口播稿 ✓ 三条金句 ✓ 三张知识卡 ✓ 数字人提示词 ✓ 标签 ✓
+
+## 📝 修改建议
+无必须修改项，可直接发布。若平台对引用严谨度要求高，可将金句标注为"核心观点提炼"。`
+};
+
+function loadDemo(){
+  CUR = Object.assign({}, DEMO, {at: now()});
+  document.getElementById('topic').value = '原子习惯';
+  document.getElementById('resultPanel').style.display = '';
+  document.querySelectorAll('.rtabs button').forEach(b=>b.classList.toggle('on', b.dataset.r==='card'));
+  switchR('card');
+  window.scrollTo({top:document.getElementById('resultPanel').offsetTop-20, behavior:'smooth'});
+  toast('这是示例成品，配置模型后可生成你自己的书');
+}
+
+/* =========================================================
+   初始化
+   ========================================================= */
+function updateReady(){
+  const h = document.getElementById('readyHint');
+  const lb = document.getElementById('cfgLabel');
+  if(CFG.key){
+    lb.textContent = '已配置';
+    h.innerHTML = `当前模型：<b>${escapeHtml(PROVIDERS[CFG.provider]?.nm||'自定义')} / ${escapeHtml(CFG.model||'')}</b>
+      <a href="#" onclick="openSetup();return false;" style="color:var(--brand)"> · 修改</a>`;
+  }else{
+    lb.textContent = '配置模型';
+    h.innerHTML = `还没有配置模型，<a href="#" onclick="openSetup();return false;" style="color:var(--brand)">点这里配置（约1分钟）</a>；
+      或先点「<b>先看样例效果</b>」查看成品长什么样。`;
+  }
+}
+document.getElementById('mask').addEventListener('click', e=>{
+  if(e.target.id === 'mask') closeSetup();
+});
+updateReady();
+if(!CFG.key) setTimeout(()=>{}, 0);
+</script>
+</body>
+</html>
