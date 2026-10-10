@@ -79,6 +79,7 @@ textarea{resize:vertical;min-height:88px;line-height:1.7}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .btn.gh{background:#fff;color:var(--brand);border:1.5px solid var(--brand)}
 .btn.sm{padding:8px 15px;font-size:13.5px;border-radius:9px}
+.btn.brand{background:linear-gradient(120deg,#f59e0b,#ec4899);border:0;color:#fff}
 .btn.mini{padding:5px 11px;font-size:12.5px;border-radius:8px;background:#f1f2f7;color:#4b5563;font-weight:600}
 .btn.mini:hover{background:#e6e8f0}
 .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
@@ -271,8 +272,14 @@ footer{text-align:center;color:#9ca3af;font-size:12px;padding:26px 16px 10px;lin
         <button class="btn sm" onclick="copyCurrent()">📋 复制当前</button>
         <button class="btn gh sm" onclick="copyAll()">📦 复制全部</button>
         <button class="btn gh sm" onclick="downloadMd()">💾 下载 .md</button>
+        <button class="btn brand sm" onclick="downloadCard()">🖼️ 下载卡片图</button>
+        <select id="cardRatio" style="height:34px;border:1px solid var(--line);border-radius:8px;padding:0 6px;font-size:13px;background:var(--card)" title="卡片比例（按发布平台选）">
+          <option value="3_4">小红书 3:4</option>
+          <option value="1_1">朋友圈 1:1</option>
+          <option value="9_16">抖音/视频号 9:16</option>
+        </select>
       </div>
-      <div class="hint">复制后可直接粘贴到剪映 / 数字人工具 / 小红书发布框。质检报告里标了「需修改」的句子，建议照着改一遍再发。</div>
+      <div class="hint">复制后可直接粘贴到剪映 / 数字人工具 / 小红书发布框。质检报告里标了「需修改」的句子，建议照着改一遍再发。<b>卡片图</b>按平台比例生成，一键存 PNG 直接发小红书 / 朋友圈 / 抖音。</div>
     </div>
   </div>
 
@@ -955,6 +962,159 @@ function dlOne(i){ download(`${HIST[i].topic.replace(/[《》]/g,'')}_读书卡.
 function downloadAllMd(){
   if(!HIST.length){ toast('还没有可下载的内容'); return; }
   download('读书卡合集.md', HIST.map(fullMd).join('\n\n\n---\n\n\n'));
+}
+/* =========================================================
+   卡片图导出：把读书卡渲染成小红书/朋友圈/抖音比例图文卡 PNG
+   ========================================================= */
+function downloadCard(){
+  if(!CUR){ toast('请先生成读书卡'); return; }
+  const ratio = (document.getElementById('cardRatio')||{}).value || '3_4';
+  const [wRatio, hRatio] = ratio.split('_').map(Number);
+  const W = 1080, H = Math.round(1080 * hRatio / wRatio);  // 3:4→1440, 1:1→1080, 9:16→1920
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  // 背景（品牌渐变）
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, '#6366f1'); g.addColorStop(0.55, '#8b5cf6'); g.addColorStop(1, '#ec4899');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // 半透明装饰圆
+  ctx.fillStyle = 'rgba(255,255,255,.07)';
+  ctx.beginPath(); ctx.arc(W*0.9, H*0.08, W*0.22, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(W*0.08, H*0.92, W*0.18, 0, Math.PI*2); ctx.fill();
+
+  // 解析 markdown：提取各章节
+  const md = CUR.card || '';
+  const getSection = (name) => {
+    const m = md.match(new RegExp(`##\\s*[^\\n]*${name}[^\\n]*\\n([\\s\\S]*?)(?=\\n##|$)`));
+    return m ? m[1].trim() : '';
+  };
+  const sell = getSection('卖点').replace(/^[-*]\s*/, '').split('\n')[0].trim();
+  const crowd = getSection('目标人群').split('\n').map(s=>s.replace(/^\d+\.\s*/, '').trim()).filter(Boolean).slice(0,3);
+  const speech = getSection('口播稿');
+  const quotes = getSection('核心金句').split('\n').filter(s=>/^\d+\./.test(s.trim())).slice(0,3)
+    .map(s=>s.replace(/^\d+\.\s*/, '').split('——')[0].replace(/\*\*/g,'').trim());
+  const cards = getSection('知识卡片').split('\n').filter(s=>/^###/.test(s.trim())).slice(0,3)
+    .map(s=>s.replace(/^###\s*/, '').replace(/^卡片\d+[:：]\s*/, '').trim());
+
+  // 排版（白卡片内层）
+  const pad = 56, innerX = pad, innerW = W - pad*2, innerY = 72;
+  ctx.fillStyle = 'rgba(255,255,255,.96)';
+  roundRect(ctx, innerX, innerY, innerW, H - innerY - pad, 28); ctx.fill();
+
+  // 内容
+  ctx.textBaseline = 'top';
+  let y = innerY + 44;
+  const X = innerX + 48, right = innerW - 96;
+
+  // 标题
+  ctx.fillStyle = '#1a1a2e';
+  ctx.font = '800 58px "PingFang SC","Microsoft YaHei",sans-serif';
+  wrapText(ctx, `📖 ${CUR.topic}`, X, y, right, 58, 76);
+  y += 76 + 20;
+
+  // 一句话卖点
+  if(sell){
+    ctx.fillStyle = '#8b5cf6';
+    ctx.font = '600 34px "PingFang SC","Microsoft YaHei",sans-serif';
+    const sellLines = wrapText(ctx, `「${sell}」`, X, y, right, 34, 50);
+    y += sellLines * 50 + 10;
+  }
+
+  // 分隔线
+  ctx.strokeStyle = '#e8eaf0'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(X, y+6); ctx.lineTo(X+right, y+6); ctx.stroke();
+  y += 30;
+
+  // 目标人群
+  if(crowd.length){
+    ctx.fillStyle = '#ec4899'; ctx.font = '700 36px sans-serif';
+    y += 36; ctx.fillText('🎯 适合谁', X, y); y += 52;
+    ctx.fillStyle = '#374151'; ctx.font = '400 32px sans-serif';
+    for(const p of crowd){
+      const lines = wrapText(ctx, `· ${p}`, X, y, right, 32, 46);
+      y += lines * 46;
+    }
+    y += 12;
+  }
+
+  // 金句
+  if(quotes.length){
+    ctx.fillStyle = '#f59e0b'; ctx.font = '700 36px sans-serif';
+    y += 36; ctx.fillText('💎 金句', X, y); y += 52;
+    ctx.fillStyle = '#1a1a2e'; ctx.font = '400 32px sans-serif';
+    for(const q of quotes){
+      const lines = wrapText(ctx, `「${q}」`, X, y, right, 32, 46);
+      y += lines * 46;
+    }
+    y += 12;
+  }
+
+  // 知识卡
+  if(cards.length){
+    ctx.fillStyle = '#6366f1'; ctx.font = '700 36px sans-serif';
+    y += 36; ctx.fillText('🧠 知识卡', X, y); y += 52;
+    ctx.fillStyle = '#374151'; ctx.font = '400 32px sans-serif';
+    for(const k of cards){
+      const lines = wrapText(ctx, `▸ ${k}`, X, y, right, 32, 46);
+      y += lines * 46;
+    }
+  }
+
+  // 底部品牌（若空间不足则跳过）
+  if(y < H - 120){
+    ctx.fillStyle = 'rgba(26,26,46,.5)';
+    ctx.font = '500 28px sans-serif';
+    ctx.fillText('AI 口播读书卡 · 一键生成', X, H - pad - 8);
+  }
+
+  // 导出 PNG（toBlob 优先，失败回退 toDataURL —— 兼容 file:// 等受限环境）
+  const done = (blob) => {
+    const a = document.createElement('a');
+    if(blob){
+      a.href = URL.createObjectURL(blob);
+    }else{
+      a.href = c.toDataURL('image/png');
+    }
+    a.download = `${CUR.topic.replace(/[《》]/g,'')}_读书卡_${ratio}.png`;
+    a.click();
+    setTimeout(()=>{ if(blob) URL.revokeObjectURL(a.href); }, 1500);
+    toast('卡片图已下载 ✓');
+  };
+  // toBlob 回调 + 兜底（toBlob 在某些环境返回 null / 不回调，1.2s 后切 toDataURL）
+  let blobDone = false;
+  const guarded = (blob) => { if(blobDone) return; blobDone = true; done(blob); };
+  try{
+    c.toBlob(guarded, 'image/png');
+  }catch(_){
+    guarded(null);
+  }
+  setTimeout(()=>{ if(!blobDone) guarded(null); }, 1200);
+}
+/* 圆角矩形路径 */
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+/* 文本换行：返回行数 */
+function wrapText(ctx, text, x, y, maxW, size, lineH){
+  let lines = 0, cur = '';
+  for(const ch of String(text)){
+    const test = cur + ch;
+    if(ctx.measureText(test).width > maxW && cur){
+      ctx.fillText(cur, x, y + lines*lineH);
+      cur = ch; lines++;
+    }else cur = test;
+  }
+  if(cur){ ctx.fillText(cur, x, y + lines*lineH); lines++; }
+  return lines;
 }
 function copyText(t){
   if(navigator.clipboard && window.isSecureContext){
