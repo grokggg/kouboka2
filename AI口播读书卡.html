@@ -210,6 +210,7 @@ footer{text-align:center;color:#9ca3af;font-size:12px;padding:26px 16px 10px;lin
 
   <div class="tabs">
     <button class="on" data-tab="gen" onclick="switchTab('gen')">✨ 生成</button>
+    <button data-tab="interact" onclick="switchTab('interact')">🎮 互动卡</button>
     <button data-tab="batch" onclick="switchTab('batch')">📚 批量</button>
     <button data-tab="hist" onclick="switchTab('hist')">🕘 历史</button>
     <button data-tab="help" onclick="switchTab('help')">❓ 帮助</button>
@@ -280,6 +281,19 @@ footer{text-align:center;color:#9ca3af;font-size:12px;padding:26px 16px 10px;lin
         </select>
       </div>
       <div class="hint">复制后可直接粘贴到剪映 / 数字人工具 / 小红书发布框。质检报告里标了「需修改」的句子，建议照着改一遍再发。<b>卡片图</b>按平台比例生成，一键存 PNG 直接发小红书 / 朋友圈 / 抖音。</div>
+    </div>
+  </div>
+
+  <!-- ============ 互动卡（v1.3） ============ -->
+  <div id="tab-interact" style="display:none">
+    <div class="panel">
+      <h2><span class="n">🎮</span>互动卡 · 让知识"能玩"</h2>
+      <div class="hint">基于当前读书卡生成互动内容：折叠卡（点击展开）/ 小测验（点选反馈）/ 金句翻卡（回忆训练）。可导出多页图文发小红书（测验页 + 答案页，评论区对答案）。</div>
+      <div class="acts">
+        <button class="btn" onclick="buildInteract()">🛠️ 生成互动卡</button>
+        <button class="btn gh sm" onclick="switchTab('gen')">← 先回生成页生成读书卡</button>
+      </div>
+      <div id="interactOut" style="margin-top:14px"></div>
     </div>
   </div>
 
@@ -1092,6 +1106,221 @@ function downloadCard(){
     guarded(null);
   }
   setTimeout(()=>{ if(!blobDone) guarded(null); }, 1200);
+}
+/* =========================================================
+   互动卡（v1.3）：折叠卡 / 小测验 / 金句翻卡 + 多页图文导出
+   ========================================================= */
+const INTERACT_QUIZ_NUM = 3;   // 测验题数
+
+/* 解析读书卡 markdown 的章节（复用 downloadCard 的逻辑，独立实现避免耦合） */
+function interGetSection(md, name){
+  const m = md.match(new RegExp(`##\\s*[^\\n]*${name}[^\\n]*\\n([\\s\\S]*?)(?=\\n##|$)`));
+  return m ? m[1].trim() : '';
+}
+/* 从读书卡提取互动数据源 */
+function interExtract(){
+  const md = (CUR && CUR.card) || '';
+  const topic = (CUR && CUR.topic) || '这本书';
+  const sell = interGetSection(md, '卖点').replace(/^[-*]\s*/, '').split('\n')[0].trim() || '值得一读';
+  const quotes = interGetSection(md, '核心金句').split('\n').filter(s=>/^\d+\./.test(s.trim()))
+    .map(s=>s.replace(/^\d+\.\s*/, '').split('——')[0].replace(/\*\*/g,'').trim()).filter(Boolean).slice(0,4);
+  const cards = interGetSection(md, '知识卡片').split('\n').filter(s=>/^###/.test(s.trim()))
+    .map(s=>s.replace(/^###\s*/, '').replace(/^卡片\d+[:：]\s*/, '').trim()).filter(Boolean).slice(0,4);
+  const speech = interGetSection(md, '口播稿');
+  return {topic, sell, quotes, cards, speech};
+}
+/* 从读书卡内容生成 3 道测验题（本地规则生成，不额外调 LLM，保证快） */
+function interGenQuiz(src){
+  const {sell, quotes, cards} = src;
+  const qs = [];
+  const pick = (arr, i) => arr.length ? arr[i % arr.length] : '';
+  // 题1：核心观点（卖点）
+  if(sell){
+    const opts = [sell, '随便说说', '广告词', '编的'].sort(()=>Math.random()-.5);
+    qs.push({q:'这本书的核心卖点是？', opts, ans:sell, tip:'来自读书卡「卖点」'});
+  }
+  // 题2：金句出处（回忆训练）
+  if(quotes[0]){
+    const rest = quotes.slice(1).concat(['坚持就好','多读书']).slice(0,3);
+    const opts = [quotes[0], ...rest].sort(()=>Math.random()-.5);
+    qs.push({q:'下面哪句是书里的金句？', opts, ans:quotes[0], tip:'来自读书卡「核心金句」'});
+  }
+  // 题3：知识卡理解（卡片标题）
+  if(cards[0]){
+    const rest = cards.slice(1).concat(['随便一个概念']).slice(0,3);
+    const opts = [cards[0], ...rest].sort(()=>Math.random()-.5);
+    qs.push({q:'这本书讲到的知识卡片有？', opts, ans:cards[0], tip:'来自读书卡「知识卡片」'});
+  }
+  // 不足 3 题用通用题补
+  while(qs.length < INTERACT_QUIZ_NUM){
+    qs.push({q:`读完这本书，你最想实践的是？`, opts:['立即行动','收藏再说','转发朋友','先放着'], ans:'立即行动', tip:'给自己一个行动承诺'});
+  }
+  return qs.slice(0, INTERACT_QUIZ_NUM);
+}
+/* 生成互动卡主入口 */
+function buildInteract(){
+  if(!CUR){ toast('请先生成读书卡（或先看样例）'); return; }
+  const src = interExtract();
+  const quiz = interGenQuiz(src);
+  const out = document.getElementById('interactOut');
+  // 样式
+  const st = `
+  <style>
+    .ix{border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px;background:var(--card)}
+    .ix h3{margin:0 0 10px;font-size:16px;display:flex;align-items:center;gap:8px}
+    .ix .fold{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden}
+    .ix .fold summary{cursor:pointer;padding:12px 14px;font-weight:600;background:rgba(99,102,241,.06);list-style:none;display:flex;justify-content:space-between;align-items:center}
+    .ix .fold summary::after{content:'▾';transition:transform .2s}
+    .ix .fold[open] summary::after{transform:rotate(180deg)}
+    .ix .fold .fb{padding:12px 14px;color:var(--t2);line-height:1.7}
+    .ix .qz{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+    .ix .qz button{border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;background:var(--card);font-size:13px}
+    .ix .qz button.correct{background:#10b981;color:#fff;border-color:#10b981}
+    .ix .qz button.wrong{background:#ef4444;color:#fff;border-color:#ef4444}
+    .ix .qz button:disabled{opacity:.55;cursor:default}
+    .ix .flip{perspective:800px;width:100%;max-width:300px;height:170px;margin:0 auto 10px;cursor:pointer}
+    .ix .flip .inner{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+    .ix .flip.flipped .inner{transform:rotateY(180deg)}
+    .ix .flip .face{position:absolute;inset:0;backface-visibility:hidden;border-radius:12px;display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;font-weight:600;box-sizing:border-box}
+    .ix .flip .front{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+    .ix .flip .back{background:#f59e0b;color:#fff;transform:rotateY(180deg)}
+    .ix .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .ix .tip{color:var(--t3);font-size:12px;margin-top:6px}
+  </style>`;
+  // 折叠卡
+  let foldHtml = '';
+  if(src.cards.length || src.speech){
+    const items = [];
+    if(src.speech) items.push(['口播稿（3分钟讲完）', src.speech.slice(0,400)]);
+    src.cards.forEach((c,i)=>items.push([`知识卡片 ${i+1}`, c]));
+    foldHtml = `<div class="ix"><h3>📂 知识折叠卡</h3>` + items.map(([t,c])=>
+      `<details class="fold"><summary>${t}</summary><div class="fb">${escapeHtml(c)}</div></details>`).join('') + `</div>`;
+  }
+  // 小测验
+  const quizHtml = `<div class="ix"><h3>🧠 测测你读懂没</h3>` + quiz.map((q,i)=>`
+    <div style="margin-bottom:12px">
+      <div style="font-weight:600;margin-bottom:6px">${i+1}. ${q.q}</div>
+      <div class="qz" data-q="${i}" data-ans="${q.ans.replace(/"/g,'&quot;')}">
+        ${q.opts.map(o=>`<button onclick="ixPick(this)">${escapeHtml(o)}</button>`).join('')}
+      </div>
+      <div class="tip" id="qTip${i}"></div>
+    </div>`).join('') + `</div>`;
+  // 金句翻卡
+  let flipHtml = '';
+  if(src.quotes.length){
+    flipHtml = `<div class="ix"><h3>🃏 金句翻卡（点卡片翻面）</h3>` +
+      src.quotes.map((q,i)=>`
+      <div class="flip" id="flip${i}" onclick="ixFlip(${i})">
+        <div class="inner">
+          <div class="face front">「${escapeHtml(q)}」</div>
+          <div class="face back">金句 ${i+1} · 记住了吗？再想想这句话的意思。</div>
+        </div>
+      </div>`).join('') + `</div>`;
+  }
+  out.innerHTML = st + foldHtml + quizHtml + flipHtml +
+    `<div class="ix"><div class="acts">
+      <button class="btn sm" onclick="ixExport('quiz')">🖼️ 导出测验页图文</button>
+      <button class="btn gh sm" onclick="ixExport('answer')">🖼️ 导出答案页图文</button>
+      <button class="btn gh sm" onclick="ixCopyMd()">📋 复制互动卡文案</button>
+    </div><div class="tip">小红书发法：发测验页 → 评论区置顶答案页，粉丝评论区对答案，互动率翻倍。</div></div>`;
+  toast('互动卡已生成（折叠/测验/翻卡）');
+}
+/* 测验点选 */
+function ixPick(btn){
+  const box = btn.closest('.qz');
+  const ans = box.getAttribute('data-ans').replace(/&quot;/g,'"');
+  const q = box.getAttribute('data-q');
+  const opt = btn.textContent.trim();
+  box.querySelectorAll('button').forEach(b=>{ b.disabled = true; b.classList.remove('correct','wrong'); });
+  if(opt === ans){
+    btn.classList.add('correct');
+    document.getElementById('qTip'+q).textContent = '✅ 答对了！';
+  }else{
+    btn.classList.add('wrong');
+    const rightBtn = [...box.querySelectorAll('button')].find(b=>b.textContent.trim() === ans);
+    if(rightBtn) rightBtn.classList.add('correct');
+    document.getElementById('qTip'+q).textContent = `❌ 再想想，正确答案是：「${ans}」`;
+  }
+}
+/* 翻卡 */
+function ixFlip(i){
+  const el = document.getElementById('flip'+i);
+  if(el) el.classList.toggle('flipped');
+}
+/* 复制互动卡文案（Markdown） */
+function ixCopyMd(){
+  const src = interExtract();
+  const quiz = interGenQuiz(src);
+  const md = [
+    `# 互动卡 · ${src.topic}`,
+    ``,
+    `## 测测你读懂没`,
+    ...quiz.map((q,i)=>`${i+1}. ${q.q}\n   A. ${q.opts[0]}\n   B. ${q.opts[1]}\n   C. ${q.opts[2]}\n   D. ${q.opts[3]}\n   答案：${q.ans}`),
+    ``,
+    `## 金句翻卡`,
+    ...src.quotes.map(q=>`- 「${q}」`),
+  ].join('\n');
+  copyText(md); toast('互动卡文案已复制');
+}
+/* 导出互动卡图文（测验页 / 答案页） */
+function ixExport(mode){
+  if(!CUR){ toast('请先生成读书卡'); return; }
+  const ratio = (document.getElementById('cardRatio')||{}).value || '3_4';
+  const [wRatio, hRatio] = ratio.split('_').map(Number);
+  const W = 1080, H = Math.round(1080 * hRatio / wRatio);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  // 背景
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, '#6366f1'); g.addColorStop(0.55, '#8b5cf6'); g.addColorStop(1, '#ec4899');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(255,255,255,.07)';
+  ctx.beginPath(); ctx.arc(W*0.9, H*0.08, W*0.22, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(W*0.08, H*0.92, W*0.18, 0, Math.PI*2); ctx.fill();
+  const src = interExtract();
+  const quiz = interGenQuiz(src);
+  const pad = 56, X = pad, right = W - pad*2;
+  let y = 72;
+  ctx.fillStyle = 'rgba(255,255,255,.96)';
+  roundRect(ctx, X, y, right, H - y - pad, 28); ctx.fill();
+  y += 34;
+  // 标题
+  ctx.fillStyle = '#1a1a2e'; ctx.font = '700 40px "PingFang SC","Microsoft YaHei",sans-serif';
+  const title = mode === 'quiz' ? `「${src.topic}」互动测验` : `「${src.topic}」答案页`;
+  ctx.fillText(title, X+40, y+36); y += 90;
+  ctx.strokeStyle = '#e8eaf0'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(X+40, y); ctx.lineTo(W-40, y); ctx.stroke(); y += 40;
+  if(mode === 'quiz'){
+    ctx.fillStyle = '#374151'; ctx.font = '400 30px sans-serif';
+    quiz.forEach((q,i)=>{
+      if(y > H - 160){ /* 空间不足截断 */ }
+      ctx.fillStyle = '#6366f1'; ctx.font = '700 32px sans-serif';
+      ctx.fillText(`${i+1}. ${q.q}`, X+40, y+30); y += 48;
+      ctx.fillStyle = '#6b7280'; ctx.font = '400 28px sans-serif';
+      q.opts.forEach((o,oi)=>{
+        ctx.fillText(`${String.fromCharCode(65+oi)}. ${o}`, X+40, y+32); y += 42;
+      });
+      y += 16;
+    });
+    ctx.fillStyle = '#f59e0b'; ctx.font = '700 30px sans-serif';
+    ctx.fillText('评论区说出你的答案 🎯', X+40, Math.min(y+30, H-100));
+  }else{
+    ctx.fillStyle = '#374151'; ctx.font = '400 30px sans-serif';
+    quiz.forEach((q,i)=>{
+      ctx.fillStyle = '#6366f1'; ctx.font = '700 32px sans-serif';
+      ctx.fillText(`${i+1}. ${q.q}`, X+40, y+30); y += 48;
+      ctx.fillStyle = '#10b981'; ctx.font = '700 30px sans-serif';
+      ctx.fillText(`✅ 答案：${q.ans}`, X+40, y+34); y += 52;
+      ctx.fillStyle = '#6b7280'; ctx.font = '400 26px sans-serif';
+      ctx.fillText(`解释：${q.tip}`, X+40, y+30); y += 60;
+    });
+    ctx.fillStyle = '#f59e0b'; ctx.font = '700 30px sans-serif';
+    ctx.fillText('你答对了几题？评论区报数 📣', X+40, Math.min(y+30, H-100));
+  }
+  const fname = `${src.topic.replace(/[《》]/g,'')}_互动${mode==='quiz'?'测验':'答案'}_${ratio}.png`;
+  try{ c.toBlob(blob=>{ if(blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); toast('✅ 已导出 '+fname); } else { /* 兼容兜底 */ const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download=fname; a.click(); toast('✅ 已导出（兼容模式）'); } }, 'image/png'); }
+  catch(_){ const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download=fname; a.click(); toast('✅ 已导出'); }
 }
 /* 圆角矩形路径 */
 function roundRect(ctx, x, y, w, h, r){
